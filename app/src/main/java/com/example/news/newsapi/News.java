@@ -1,6 +1,8 @@
 package com.example.news.newsapi;
 
-public class News {
+import java.util.Objects;
+
+public class News implements Comparable {
     private String sourceName;
     private String sourceId;
     private String category;
@@ -59,6 +61,23 @@ public class News {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        News news = (News) o;
+        return Objects.equals(sourceName, news.sourceName) &&
+                Objects.equals(sourceId, news.sourceId) &&
+                Objects.equals(category, news.category) &&
+                Objects.equals(language, news.language) &&
+                Objects.equals(country, news.country);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(sourceName, sourceId, category, language, country);
+    }
+
+    @Override
     public String toString() {
         return "News{" +
                 "sourceName='" + sourceName + '\'' +
@@ -67,5 +86,11 @@ public class News {
                 ", language='" + language + '\'' +
                 ", country='" + country + '\'' +
                 '}';
+    }
+
+    @Override
+    public int compareTo(Object o) {
+        News compareObject = (News)o;
+        return this.getSourceName().compareTo(compareObject.getSourceName());
     }
 }
