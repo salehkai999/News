@@ -1,6 +1,9 @@
 package com.example.news;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -55,9 +58,19 @@ public class NewsFragment extends Fragment {
             }
             int index = args.getInt("INDEX");
             int total = args.getInt("TOTAL_COUNT");
+            Log.d(TAG, "onCreateView: "+index);
+            TextView pos = fragment_layout.findViewById(R.id.posTxt);
+            pos.setText(index+" of "+total);
             TextView headline = fragment_layout.findViewById(R.id.headline);
             headline.setText(newsData.getTitle());
+            headline.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    openURL(newsData.getUrl());
+                }
+            });
             TextView date = fragment_layout.findViewById(R.id.date);
+
         //    String datePart1 = newsData.getDate().replace("T"," ");
          //   String datePart2 = datePart1.replace("Z","");
           //  Log.d(TAG, "onCreateView: "+datePart2);
@@ -75,48 +88,62 @@ public class NewsFragment extends Fragment {
             }
             catch (Exception e){
                 Log.d(TAG, "onCreateView: "+e.getMessage());
+                date.setVisibility(View.GONE);
             }
-          //  SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss:aa");
-          //  String dateFinal = dateFormat.format(datePart2);
-          //  Log.d(TAG, "onCreateView: "+dateFinal);
-            // String string = "January 2, 2010";
-          //  SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss:aa");
-          //  Date d;
-          //  try {
-             //   d = dateFormat.parse(newsData.getDate());
-             //   date.setText(d.toString());
-            //} catch (ParseException e) {
-          //      e.printStackTrace();
-           // }
-            // LocalDate dateData = LocalDate.parse(newsData.getDate(), dateFormat);
-
-            //SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss:aa");
-            //Date d = new Date(newsData.getDate());
-            //date.setText(dateFormat.format(d).toString());
             TextView author = fragment_layout.findViewById(R.id.author);
-            author.setText(newsData.getAuthor());
+            if(!newsData.getAuthor().isEmpty() && (!newsData.getAuthor().equals("null")))
+                author.setText(newsData.getAuthor());
+            else
+                author.setVisibility(View.GONE);
+
             TextView body = fragment_layout.findViewById(R.id.newsbody);
-            body.setText(newsData.getDescription());
+            if(!newsData.getDescription().isEmpty() && !(newsData.getDescription().equals("null"))) {
+                body.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        openURL(newsData.getUrl());
+                    }
+                });
+                body.setText(newsData.getDescription());
+                body.setMovementMethod(new ScrollingMovementMethod());
+            }
+            else
+                body.setVisibility(View.GONE);
 
             ImageView image = fragment_layout.findViewById(R.id.imageView);
-            Picasso.get().load(newsData.getImageUrl()).into(image, new Callback() {
-                @Override
-                public void onSuccess() {
+            if(!newsData.getImageUrl().isEmpty()) {
+                Picasso.get().load(newsData.getImageUrl())
+                        .error(R.drawable.brokenimage)
+                        .placeholder(R.drawable.loading)
+                        .into(image, new Callback() {
+                    @Override
+                    public void onSuccess() {
 
-                }
+                    }
 
-                @Override
-                public void onError(Exception e) {
+                    @Override
+                    public void onError(Exception e) {
 
-                }
-            });
-
+                    }
+                });
+                image.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        openURL(newsData.getUrl());
+                    }
+                });
+            }
             return fragment_layout;
         }
         else {
             return null;
         }
 
+    }
+
+    private void openURL(String url) {
+        Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+        startActivity(i);
     }
 
 }
