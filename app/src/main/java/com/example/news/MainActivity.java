@@ -22,10 +22,21 @@ import com.example.news.newsapi.News;
 import com.example.news.newsapi.NewsData;
 import com.example.news.newsapi.NewsDataRunnable;
 import com.example.news.newsapi.NewsRunnable;
+import com.example.news.newsapi.NewsUtil;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
@@ -42,6 +53,10 @@ public class MainActivity extends AppCompatActivity {
     private HashSet countries;
     private static ArrayList<News> newsList;
     private static HashSet<News> currentList = new HashSet<>();
+    private static HashMap<String,String> countryNames = new HashMap<>();
+    private static HashMap<String,String> langsMap = new HashMap<>();
+    private static ArrayList<String> countNamesList = new ArrayList<>();
+    private static ArrayList<String> lanuagesNames = new ArrayList<>();
     private static ArrayList<News> currentArrayList = new ArrayList<>();
     private static ArrayList<String> newsResources = new ArrayList<String>();
     private static HashSet<News> tempCurrent = new HashSet<>();
@@ -89,7 +104,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
         fragments = new ArrayList<>();
-
         pageAdapter = new MyPageAdapter(getSupportFragmentManager());
         pager = findViewById(R.id.viewpager);
         pager.setAdapter(pageAdapter);
@@ -120,13 +134,15 @@ public class MainActivity extends AppCompatActivity {
 
         if(item.getItemId()==R.id.topics){
             Toast.makeText(this, "Topics", Toast.LENGTH_SHORT).show();
-            numFlag = 1;
-            item.getSubMenu().add("All");
+            if(numFlag==0)
+                item.getSubMenu().add("All");
             Object[] catAll = categories.toArray();
             for(int i=0;i<catAll.length;i++){
-                item.getSubMenu().add(catAll[i].toString());
+                item.getSubMenu().add(catAll[i].toString().toUpperCase());
             }
             Log.d(TAG, "onOptionsItemSelected: "+item.getTitle().toString());
+            categories.clear();
+            numFlag = 1;
           //  processNews("All");
 
         }
@@ -135,37 +151,51 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "Languages", Toast.LENGTH_SHORT).show();
             Log.d(TAG, "onOptionsItemSelected: LANG "+item.getItemId());
             Object[] catAll = langs.toArray();
-            for(int i=0;i<catAll.length;i++){
-                item.getSubMenu().add(catAll[i].toString());
+            for(String s : lanuagesNames){
+                item.getSubMenu().add(s);
             }
+            lanuagesNames.clear();
+
         }
         else if(item.getItemId()==R.id.countries){
             numFlag=3;
             Toast.makeText(this, "Countries", Toast.LENGTH_SHORT).show();
             Object[] catAll = countries.toArray();
-            for(int i=0;i<catAll.length;i++){
-                item.getSubMenu().add(catAll[i].toString());
+            for(String s : countNamesList){
+                item.getSubMenu().add(s);
             }
+            countNamesList.clear();
         }
         else {
             Log.d(TAG, "onOptionsItemSelected: " + item.getTitle().toString());
             Log.d(TAG, "onOptionsItemSelected: ID " + item.getItemId());
             switch (numFlag) {
                 case 1:
-                    topicsFlag = item.getTitle().toString();
+                    topicsFlag = item.getTitle().toString().toLowerCase();
                     processNews(topicsFlag);
                 //    processNewsTopics(topicsFlag);
                     break;
                 case 2:
-                    languageFlag = item.getTitle().toString();
+                    languageFlag = langsMap.get(item.getTitle().toString());
                     processNews(languageFlag);
                 //    processNewsLanguage(languageFlag);
                     break;
                 case 3:
-                    countryFlag = item.getTitle().toString();
+                    countryFlag = countryNames.get(item.getTitle().toString());
+                    Log.d(TAG, "onOptionsItemSelected: "+countryFlag);
                     processNews(countryFlag);
                    // processNewsCountry(countryFlag);
                     break;
+            }
+            if(!topicsFlag.isEmpty() && (!languageFlag.isEmpty())) {
+                Log.d(TAG, "onOptionsItemSelected: ");
+                NewsUtil.subList(topicsFlag, languageFlag);
+            }
+            if(!topicsFlag.isEmpty() && (!languageFlag.isEmpty()) && (!countryFlag.isEmpty())) {
+                NewsUtil.subListLangCountryTopic(languageFlag,topicsFlag,countryFlag);
+            }
+            if(!countryFlag.isEmpty() && topicsFlag.isEmpty() && languageFlag.isEmpty()){
+                NewsUtil.subListCountry(countryFlag);
             }
             //processNewsAll(topicsFlag,languageFlag,countryFlag);
         }
@@ -323,6 +353,86 @@ public class MainActivity extends AppCompatActivity {
         this.newsList = newsData;
         Log.d(TAG, "process: "+categories.toString());
         processNews("All");
+        try {
+            NewsUtil.setAllNews(newsList);
+            processRAW();
+            processRAWLanguages();
+        }
+        catch (Exception e){
+            Log.d(TAG, "process: "+e.getMessage());
+        }
+    }
+
+    private void processRAW() throws IOException, JSONException {
+        countNamesList.clear();
+        Log.d(TAG, "processRAW: ");
+        InputStream is = this.getResources().openRawResource(R.raw.country_codes);
+        StringBuilder sb = new StringBuilder();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+
+        String line = reader.readLine();
+        while (line != null) {
+            sb.append(line);
+        //    Log.d(TAG, "processRAW: "+line);
+            line = reader.readLine();
+        }
+        reader.close();
+        JSONObject codesObj = new JSONObject(sb.toString());
+        Log.d(TAG, "processRAW: "+codesObj.toString());
+        JSONArray codesArray = codesObj.getJSONArray("countries");
+        Object[] codes = countries.toArray();
+        for(int i=0;i<codes.length;i++) {
+            for(int j=0;j<codesArray.length();j++) {
+                if(codes[i].toString().equalsIgnoreCase(codesArray.getJSONObject(j).getString("code"))){
+                    Log.d(TAG, "processRAW: "+codesArray.getJSONObject(j).getString("name"));
+                    countryNames.put(codesArray.getJSONObject(j).getString("name"),codes[i].toString());
+                }
+            }
+        }
+        NewsUtil.processCountries(codes);
+        for(String s : countryNames.keySet()){
+            countNamesList.add(s);
+        }
+        Collections.sort(countNamesList);
+        Log.d(TAG, "processRAW: "+countryNames.toString());
+
+
+    }
+
+
+    private void processRAWLanguages() throws IOException, JSONException {
+        lanuagesNames.clear();
+        InputStream is = this.getResources().openRawResource(R.raw.language_codes);
+        StringBuilder sb = new StringBuilder();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+
+        String line = reader.readLine();
+        while (line != null) {
+            sb.append(line);
+            //    Log.d(TAG, "processRAW: "+line);
+            line = reader.readLine();
+        }
+        reader.close();
+        JSONObject codesObj = new JSONObject(sb.toString());
+        Log.d(TAG, "processRAW: "+codesObj.toString());
+        JSONArray codesArray = codesObj.getJSONArray("languages");
+        Object[] codes = langs.toArray();
+        for(int i=0;i<codes.length;i++) {
+            for(int j=0;j<codesArray.length();j++) {
+                if(codes[i].toString().equalsIgnoreCase(codesArray.getJSONObject(j).getString("code"))){
+                    Log.d(TAG, "processRAW: "+codesArray.getJSONObject(j).getString("name"));
+                    langsMap.put(codesArray.getJSONObject(j).getString("name"),codes[i].toString());
+                }
+            }
+        }
+        for(String s : langsMap.keySet()){
+            lanuagesNames.add(s);
+        }
+        Collections.sort(lanuagesNames);
+        //NewsUtil.setAllNews(newsList);
+        NewsUtil.processLang(codes);
+        Log.d(TAG, "processRAW: "+lanuagesNames.toString());
+
     }
 
     public void addArticles(ArrayList<NewsData> articles) {
