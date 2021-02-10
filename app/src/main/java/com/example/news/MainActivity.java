@@ -9,6 +9,7 @@ import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentPagerAdapter;
 import androidx.viewpager.widget.ViewPager;
 
+import android.annotation.SuppressLint;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.util.Log;
@@ -16,6 +17,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.news.newsapi.News;
@@ -86,6 +88,7 @@ public class MainActivity extends AppCompatActivity {
                     Log.d(TAG, "onCreate: "+currentArrayList.get(position).toString());
                     new Thread(new NewsDataRunnable(this,currentArrayList.get(position).getSourceId())).start();
                     setTitle(currentArrayList.get(position).getSourceName());
+                    pager.setBackground(null);
                     mDrawerLayout.closeDrawer(mDrawerList);
                 }
         );
@@ -124,6 +127,7 @@ public class MainActivity extends AppCompatActivity {
         mDrawerToggle.onConfigurationChanged(newConfig);
     }
 
+    @SuppressLint("ResourceAsColor")
     public boolean onOptionsItemSelected(MenuItem item) {
 
 
@@ -134,8 +138,8 @@ public class MainActivity extends AppCompatActivity {
 
         if(item.getItemId()==R.id.topics){
             Toast.makeText(this, "Topics", Toast.LENGTH_SHORT).show();
-            if(numFlag==0)
-                item.getSubMenu().add("All");
+            //if(numFlag==0)
+              //  item.getSubMenu().add("All");
             Object[] catAll = categories.toArray();
             for(int i=0;i<catAll.length;i++){
                 item.getSubMenu().add(catAll[i].toString().toUpperCase());
@@ -172,42 +176,55 @@ public class MainActivity extends AppCompatActivity {
             switch (numFlag) {
                 case 1:
                     topicsFlag = item.getTitle().toString().toLowerCase();
-                    processNews(topicsFlag);
+                  //  processNews(topicsFlag);
                 //    processNewsTopics(topicsFlag);
                     break;
                 case 2:
                     languageFlag = langsMap.get(item.getTitle().toString());
-                    processNews(languageFlag);
+                 //   processNews(languageFlag);
                 //    processNewsLanguage(languageFlag);
                     break;
                 case 3:
                     countryFlag = countryNames.get(item.getTitle().toString());
                     Log.d(TAG, "onOptionsItemSelected: "+countryFlag);
-                    processNews(countryFlag);
+                   // processNews(countryFlag);
                    // processNewsCountry(countryFlag);
                     break;
             }
-            if(!topicsFlag.isEmpty() && (!languageFlag.isEmpty())) {
-                Log.d(TAG, "onOptionsItemSelected: ");
-                NewsUtil.subList(topicsFlag, languageFlag);
-            }
+
+            Log.d(TAG, "onOptionsItemSelected: Country :"+countryFlag+" lang : "+languageFlag+" topic "+topicsFlag);
             if(!topicsFlag.isEmpty() && (!languageFlag.isEmpty()) && (!countryFlag.isEmpty())) {
-                NewsUtil.subListLangCountryTopic(languageFlag,topicsFlag,countryFlag);
+                currentArrayList = NewsUtil.subListLangCountryTopic(languageFlag,topicsFlag,countryFlag);
             }
-            if(!countryFlag.isEmpty() && topicsFlag.isEmpty() && languageFlag.isEmpty()){
-                NewsUtil.subListCountry(countryFlag);
+            else if(!topicsFlag.isEmpty() && (!languageFlag.isEmpty())) {
+                Log.d(TAG, "onOptionsItemSelected: ");
+                currentArrayList = NewsUtil.subListLangTopic(topicsFlag, languageFlag);
             }
+            else if ((!countryFlag.isEmpty()) && (!topicsFlag.isEmpty()))
+            {
+                currentArrayList = NewsUtil.subListTopicCountry(topicsFlag,countryFlag);
+            }
+            else if(!countryFlag.isEmpty() && topicsFlag.isEmpty() && languageFlag.isEmpty()){
+                currentArrayList = NewsUtil.subListCountry(countryFlag);
+            }
+            else if(!topicsFlag.isEmpty() && (countryFlag.isEmpty()) && (languageFlag.isEmpty())){
+                currentArrayList = NewsUtil.subListTopic(topicsFlag);
+            }
+            else if(!languageFlag.isEmpty() && topicsFlag.isEmpty() && countryFlag.isEmpty())
+                currentArrayList = NewsUtil.subListLang(languageFlag);
+
+
+            Collections.sort(currentArrayList);
+            newsResources.clear();
+            for(int i=0;i<currentArrayList.size();i++){
+                newsResources.add(currentArrayList.get(i).getSourceName());
+            }
+            Collections.sort(newsResources);
+            setTitle("News ("+currentArrayList.size()+")");
+            mDrawerList.setAdapter(new ArrayAdapter<>(this, R.layout.drawer_item, newsResources));
+           // else if()
             //processNewsAll(topicsFlag,languageFlag,countryFlag);
         }
-
-
-
-
-      /*  else {
-            Toast.makeText(this, item.getTitle(), Toast.LENGTH_SHORT).show();
-        } */
-
-      //  ((ArrayAdapter) mDrawerList.getAdapter()).notifyDataSetChanged();
         return super.onOptionsItemSelected(item);
     }
 
@@ -273,6 +290,7 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    @SuppressLint("ResourceAsColor")
     private void processNewsTopics(String topicsFlag) {
         if(!currentList.isEmpty()){
             for(News n : currentList){
@@ -293,12 +311,14 @@ public class MainActivity extends AppCompatActivity {
             newsResources.add(n.getSourceName());
             currentArrayList.add(n);
         }
+
         Collections.sort(newsResources);
         Collections.sort(currentArrayList);
-        mDrawerList.setAdapter(new ArrayAdapter<>(this, R.layout.drawer_item, newsResources));
+
     }
 
 
+    @SuppressLint("ResourceAsColor")
     private void processNews(String topic){
 
         currentList.clear();
@@ -334,8 +354,11 @@ public class MainActivity extends AppCompatActivity {
         }
         Collections.sort(newsResources);
         Collections.sort(currentArrayList);
-
+        setTitle("News ("+currentArrayList.size()+")");
         mDrawerList.setAdapter(new ArrayAdapter<>(this, R.layout.drawer_item, newsResources));
+        Log.d(TAG, "processNews: "+mDrawerList.getCount());
+
+
     }
 
 
@@ -357,10 +380,14 @@ public class MainActivity extends AppCompatActivity {
             NewsUtil.setAllNews(newsList);
             processRAW();
             processRAWLanguages();
+            Object[] codes = this.categories.toArray();
+            NewsUtil.processCategories(codes);
+            NewsUtil.processLang(languages.toArray());
         }
         catch (Exception e){
             Log.d(TAG, "process: "+e.getMessage());
         }
+
     }
 
     private void processRAW() throws IOException, JSONException {
@@ -430,8 +457,9 @@ public class MainActivity extends AppCompatActivity {
         }
         Collections.sort(lanuagesNames);
         //NewsUtil.setAllNews(newsList);
-        NewsUtil.processLang(codes);
+
         Log.d(TAG, "processRAW: "+lanuagesNames.toString());
+
 
     }
 

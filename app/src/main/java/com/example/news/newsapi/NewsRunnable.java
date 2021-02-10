@@ -117,6 +117,7 @@ public class NewsRunnable implements Runnable  {
             mainActivity.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    categories.add("All");
                     mainActivity.process(categories,languages,countries,newsData);
                 }
             });
